@@ -1,4 +1,109 @@
-return fingerprint;
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real Device Fingerprint</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            padding: 20px;
+        }
+        .fingerprint-container {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+        }
+        h2 {
+            margin-bottom: 20px;
+        }
+        .fingerprint-details {
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="fingerprint-container">
+        <h2>Your Device Fingerprint Details</h2>
+        <div id="fingerprint"></div>
+    </div>
+
+    <script>
+        // Function to gather real fingerprint details
+        function getFingerprintDetails() {
+            const fingerprint = {};
+
+            // Browser information
+            fingerprint.userAgent = navigator.userAgent;
+            fingerprint.language = navigator.language;
+            fingerprint.platform = navigator.platform;
+            fingerprint.cookieEnabled = navigator.cookieEnabled;
+            fingerprint.doNotTrack = navigator.doNotTrack || "Not supported";
+
+            // Screen and display information
+            fingerprint.screenResolution = `${screen.width} x ${screen.height}`;
+            fingerprint.colorDepth = screen.colorDepth;
+            fingerprint.pixelRatio = window.devicePixelRatio || 1;
+
+            // Timezone information
+            fingerprint.timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+            fingerprint.timeZoneOffset = new Date().getTimezoneOffset();
+
+            // Installed browser plugins (if any)
+            fingerprint.plugins = Array.from(navigator.plugins).map(plugin => plugin.name);
+
+            // WebGL for device-specific GPU fingerprinting
+            fingerprint.webGL = getWebGLFingerprint();
+
+            // AudioContext fingerprinting
+            fingerprint.audioContext = getAudioContextFingerprint();
+
+            // Touch capability detection (useful for mobile)
+            fingerprint.touchSupport = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || (navigator.msMaxTouchPoints > 0);
+
+            // Return collected fingerprint
+            return fingerprint;
+        }
+
+        // Function to get WebGL fingerprint (GPU info)
+        function getWebGLFingerprint() {
+            const canvas = document.createElement('canvas');
+            const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+            if (!gl) {
+                return 'WebGL not supported';
+            }
+            const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+            return debugInfo ? gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) : 'Unknown GPU';
+        }
+
+        // Function to get AudioContext fingerprint (for audio signal-based identification)
+        function getAudioContextFingerprint() {
+            const context = new (window.AudioContext || window.webkitAudioContext)();
+            const oscillator = context.createOscillator();
+            const analyser = context.createAnalyser();
+            const gain = context.createGain();
+            const scriptProcessor = context.createScriptProcessor(4096, 1, 1);
+
+            oscillator.type = 'triangle';
+            oscillator.connect(analyser);
+            analyser.connect(scriptProcessor);
+            scriptProcessor.connect(context.destination);
+            oscillator.start(0);
+
+            const fingerprint = new Promise((resolve) => {
+                scriptProcessor.onaudioprocess = () => {
+                    const array = new Float32Array(analyser.frequencyBinCount);
+                    analyser.getFloatFrequencyData(array);
+                    const hash = array.slice(0, 10).reduce((acc, val) => acc + Math.abs(val), 0);
+                    oscillator.stop();
+                    resolve(hash);
+                };
+            });
+
+            return fingerprint;
         }
 
         // Function to display fingerprint details
@@ -13,9 +118,9 @@ return fingerprint;
                 }
 
                 if (details[key] instanceof Array) {
-                    html += <div class="fingerprint-details"><strong>${key}:</strong> ${details[key].join(', ')}</div>;
+                    html += `<div class="fingerprint-details"><strong>${key}:</strong> ${details[key].join(', ')}</div>`;
                 } else {
-                    html += <div class="fingerprint-details"><strong>${key}:</strong> ${details[key]}</div>;
+                    html += `<div class="fingerprint-details"><strong>${key}:</strong> ${details[key]}</div>`;
                 }
             }
 
